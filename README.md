@@ -5,6 +5,12 @@ A versatile JavaScript-based Markdown editor that offers a seamless experience b
 
 ![image](https://github.com/user-attachments/assets/26d74f49-9094-4336-a951-71919388145d)
 
+## Blade Wiki Flavor
+
+This branch contiains modifications to allow Blade-wiki flavor markdown. It is configurable to allow standard or blade-wiki via the `markdownMode` option.
+
+Currently there is no plan to merge this back upstream. It's a niche, retired flavor.
+
 ## Features
 
 - **Dual Editing Modes:**

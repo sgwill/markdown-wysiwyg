@@ -19,49 +19,95 @@ const ICON_TABLE_INSERT_ROW_BELOW = `<svg viewBox="0 0 24 24" fill="none"><g fil
 const ICON_TABLE_INSERT_COL_LEFT = `<svg viewBox="0 0 24 24" fill="none"><g fill="#4a90e2"><rect x="9" y="6" width="3" height="4" rx=".5"/><rect x="9" y="11" width="3" height="4" rx=".5"/><rect x="9" y="16" width="3" height="4" rx=".5"/></g><g fill="#999"><rect x="14" y="6" width="3" height="4" rx=".5"/><rect x="14" y="11" width="3" height="4" rx=".5"/><rect x="14" y="16" width="3" height="4" rx=".5"/></g><path stroke="#4a90e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 12H3M4 10l-2 2 2 2"/></svg>`;
 const ICON_TABLE_INSERT_COL_RIGHT = `<svg viewBox="0 0 24 24" fill="none"><g fill="#999"><rect x="7" y="6" width="3" height="4" rx=".5"/><rect x="7" y="11" width="3" height="4" rx=".5"/><rect x="7" y="16" width="3" height="4" rx=".5"/></g><g fill="#4a90e2"><rect x="12" y="6" width="3" height="4" rx=".5"/><rect x="12" y="11" width="3" height="4" rx=".5"/><rect x="12" y="16" width="3" height="4" rx=".5"/></g><path stroke="#4a90e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M17 12h4M20 10l2 2-2 2"/></svg>`;
 
+const mdTokens = {
+    'markdown': {
+        bold: {
+            token: '**',
+            regex: /\*\*(.*?)\*\*/g,
+            len: 2,
+        },
+        italic: {
+            token: '*',
+            regex: /\*(.*?)\*/g,
+            len: 1,
+        },
+        strikethrough: {
+            token: '~~',
+            regex: /~~(.*?)~~/g,
+            len: 2,
+        }
+    },
+    'bladewiki': {
+        bold: {
+            token: '*',
+            regex: /\*(.*?)\*/g,
+            len: 1,
+        },
+        italic: {
+            token: '=',
+            regex: /\=(.*?)\=/g,
+            len: 1,
+        },
+        strikethrough: {
+            token: '-',
+            regex: /-(.*?)-/g,
+            len: 1,
+        }
+    },
+};
+
 class MarkdownWYSIWYG {
     constructor(elementId, options = {}) {
         this.hostElement = document.getElementById(elementId);
         if (!this.hostElement) {
             throw new Error(`Element with ID '${elementId}' not found.`);
         }
-        this.options = {
-            initialValue: '',
-            showToolbar: true,
-            buttons: [
-                // Group 1: Headings
-                { id: 'heading', label: ICON_HEADING_MENU, title: 'Headings', action: '_toggleHeadingMenu' },
-                { id: 'separator' },
-                // Group 2: Inline Formatting
-                { id: 'bold', label: ICON_BOLD, title: 'Bold', execCommand: 'bold', type: 'inline', mdPrefix: '**', mdSuffix: '**' },
-                { id: 'italic', label: ICON_ITALIC, title: 'Italic', execCommand: 'italic', type: 'inline', mdPrefix: '*', mdSuffix: '*' },
-                { id: 'strikethrough', label: ICON_STRIKETHROUGH, title: 'Strikethrough', execCommand: 'strikeThrough', type: 'inline', mdPrefix: '~~', mdSuffix: '~~' },
-                { id: 'separator' },
-                // Group 3: Link & Code
-                { id: 'link', label: ICON_LINK, title: 'Link', action: '_insertLink', type: 'inline' },
-                { id: 'inlinecode', label: ICON_INLINECODE, title: 'Inline Code', action: '_insertInlineCode', type: 'inline', mdPrefix: '`', mdSuffix: '`' },
-                { id: 'codeblock', label: ICON_CODEBLOCK, title: 'Code Block', action: '_insertCodeBlock', type: 'block-wrap', mdPrefix: '```\n', mdSuffix: '\n```' },
-                { id: 'separator' },
-                // Group 4: Lists & Indentation
-                { id: 'ul', label: ICON_UL, title: 'Unordered List', execCommand: 'insertUnorderedList', type: 'block-list', mdPrefix: '- ' },
-                { id: 'ol', label: ICON_OL, title: 'Ordered List', execCommand: 'insertOrderedList', type: 'block-list', mdPrefix: '1. ' },
-                { id: 'outdent', label: ICON_OUTDENT, title: 'Outdent', action: '_handleOutdent', type: 'list-format' },
-                { id: 'indent', label: ICON_INDENT, title: 'Indent', action: '_handleIndent', type: 'list-format' },
-                { id: 'separator' },
-                // Group 5: Block Elements
-                { id: 'blockquote', label: ICON_BLOCKQUOTE, title: 'Blockquote', execCommand: 'formatBlock', value: 'BLOCKQUOTE', type: 'block', mdPrefix: '> ' },
-                { id: 'hr', label: ICON_HR, title: 'Horizontal Rule', action: '_insertHorizontalRuleAction', type: 'block-insert' },
-                { id: 'separator' },
-                // Group 6: Inserts
-                { id: 'image', label: ICON_IMAGE, title: 'Insert Image', action: '_insertImageAction', type: 'block-insert' },
-                { id: 'table', label: ICON_TABLE, title: 'Insert Table', action: '_insertTableAction', type: 'block-insert' },
-            ],
-            onUpdate: null,
-            initialMode: 'wysiwyg',
-            tableGridMaxRows: 10,
-            tableGridMaxCols: 10,
-            ...options
-        };
+        this.options = options || {};
+
+        this.options.initialValue = options.initialValue || '';
+
+        this.options.showToolbar = options.showToolbar || true;
+
+        // Markdown mode
+        this.options.markdownMode = options.markdownMode || 'markdown'; // 'markdown' or 'bladewiki'
+
+        this.options.buttons = options.buttons || [
+            // Group 1: Headings
+            { id: 'heading', label: ICON_HEADING_MENU, title: 'Headings', action: '_toggleHeadingMenu' },
+            { id: 'separator' },
+            // Group 2: Inline Formatting
+            { id: 'bold', label: ICON_BOLD, title: 'Bold', execCommand: 'bold', type: 'inline', mdPrefix: mdTokens[this.options.markdownMode].bold.token, mdSuffix: mdTokens[this.options.markdownMode].bold.token },
+            { id: 'italic', label: ICON_ITALIC, title: 'Italic', execCommand: 'italic', type: 'inline', mdPrefix: mdTokens[this.options.markdownMode].italic.token, mdSuffix: mdTokens[this.options.markdownMode].italic.token },
+            { id: 'strikethrough', label: ICON_STRIKETHROUGH, title: 'Strikethrough', execCommand: 'strikeThrough', type: 'inline', mdPrefix: mdTokens[this.options.markdownMode].strikethrough.token, mdSuffix: mdTokens[this.options.markdownMode].strikethrough.token },
+            { id: 'separator' },
+            // Group 3: Link & Code
+            { id: 'link', label: ICON_LINK, title: 'Link', action: '_insertLink', type: 'inline' },
+            { id: 'inlinecode', label: ICON_INLINECODE, title: 'Inline Code', action: '_insertInlineCode', type: 'inline', mdPrefix: '`', mdSuffix: '`' },
+            { id: 'codeblock', label: ICON_CODEBLOCK, title: 'Code Block', action: '_insertCodeBlock', type: 'block-wrap', mdPrefix: '```\n', mdSuffix: '\n```' },
+            { id: 'separator' },
+            // Group 4: Lists & Indentation
+            { id: 'ul', label: ICON_UL, title: 'Unordered List', execCommand: 'insertUnorderedList', type: 'block-list', mdPrefix: '- ' },
+            { id: 'ol', label: ICON_OL, title: 'Ordered List', execCommand: 'insertOrderedList', type: 'block-list', mdPrefix: '1. ' },
+            { id: 'outdent', label: ICON_OUTDENT, title: 'Outdent', action: '_handleOutdent', type: 'list-format' },
+            { id: 'indent', label: ICON_INDENT, title: 'Indent', action: '_handleIndent', type: 'list-format' },
+            { id: 'separator' },
+            // Group 5: Block Elements
+            { id: 'blockquote', label: ICON_BLOCKQUOTE, title: 'Blockquote', execCommand: 'formatBlock', value: 'BLOCKQUOTE', type: 'block', mdPrefix: '> ' },
+            { id: 'hr', label: ICON_HR, title: 'Horizontal Rule', action: '_insertHorizontalRuleAction', type: 'block-insert' },
+            { id: 'separator' },
+            // Group 6: Inserts
+            { id: 'image', label: ICON_IMAGE, title: 'Insert Image', action: '_insertImageAction', type: 'block-insert' },
+            { id: 'table', label: ICON_TABLE, title: 'Insert Table', action: '_insertTableAction', type: 'block-insert' },
+        ];
+
+        this.options.onUpdate = options.onUpdate || null;
+
+        this.options.initialMode = options.initialMode || 'wysiwyg';
+
+        this.options.tableGridMaxRows = options.tableGridMaxRows || 10;
+
+        this.options.tableGridMaxCols = options.tableGridMaxCols || 10;
+
         this.currentMode = this.options.initialMode;
         this.undoStack = [];
         this.redoStack = [];
@@ -1132,15 +1178,15 @@ class MarkdownWYSIWYG {
                     }
                 }
                 if (btnConfig.id === 'italic' && isActive) {
-                    if (textValue.substring(actualFormatStart, actualFormatStart + 2) === '**' &&
-                        textValue.substring(actualFormatEnd - 2, actualFormatEnd) === '**') {
+                    if (textValue.substring(actualFormatStart, actualFormatStart + mdTokens[this.options.markdownMode].bold.len) === mdTokens[this.options.markdownMode].bold.token &&
+                        textValue.substring(actualFormatEnd - mdTokens[this.options.markdownMode].bold.len, actualFormatEnd) === mdTokens[this.options.markdownMode].bold.token) {
                         isActive = false;
                     } else {
                         const charBeforeActualPrefix = (actualFormatStart > 0) ? textValue.charAt(actualFormatStart - 1) : null;
                         const charAfterActualSuffix = (actualFormatEnd < textValue.length) ? textValue.charAt(actualFormatEnd) : null;
-                        if (charBeforeActualPrefix === '*' && charAfterActualSuffix === '*') {
-                            const isThirdStarBefore = (actualFormatStart - 2 >= 0) && (textValue.charAt(actualFormatStart - 2) === '*');
-                            const isThirdStarAfter = (actualFormatEnd + 1 < textValue.length) && (textValue.charAt(actualFormatEnd + 1) === '*');
+                        if (charBeforeActualPrefix === mdTokens[this.options.markdownMode].italic.token && charAfterActualSuffix === mdTokens[this.options.markdownMode].italic.token) {
+                            const isThirdStarBefore = (actualFormatStart - 2 >= 0) && (textValue.charAt(actualFormatStart - 2) === mdTokens[this.options.markdownMode].italic.token);
+                            const isThirdStarAfter = (actualFormatEnd + 1 < textValue.length) && (textValue.charAt(actualFormatEnd + 1) === mdTokens[this.options.markdownMode].italic.token);
                             if (isThirdStarBefore && isThirdStarAfter) {
                                 isActive = true;
                             } else {
@@ -1149,7 +1195,7 @@ class MarkdownWYSIWYG {
                         } else {
                             const charAfterActualPrefix = (actualFormatStart + prefixLen < actualFormatEnd) ? textValue.charAt(actualFormatStart + prefixLen) : null;
                             const charBeforeActualSuffix = (actualFormatEnd - suffixLen - 1 >= actualFormatStart + prefixLen) ? textValue.charAt(actualFormatEnd - suffixLen - 1) : null;
-                            if (charAfterActualPrefix === '*' && charBeforeActualSuffix === '*') {
+                            if (charAfterActualPrefix === mdTokens[this.options.markdownMode].italic.token && charBeforeActualSuffix === mdTokens[this.options.markdownMode].italic.token) {
                                 isActive = false;
                             }
                         }
@@ -2061,7 +2107,7 @@ class MarkdownWYSIWYG {
         }
     }
     _markdownToHtml(markdown) {
-        if (typeof marked === 'undefined') {
+        if (typeof marked === 'undefined' || this.options.markdownMode === 'bladewiki') {
             console.warn("marked.js library not found. Using basic Markdown to HTML conversion.");
             let html = markdown
                 .replace(/&/g, '&amp;')
@@ -2072,10 +2118,11 @@ class MarkdownWYSIWYG {
             html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>')
                 .replace(/^## (.*$)/gim, '<h2>$1</h2>')
                 .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                // TODO:
                 .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/~~(.*?)~~/g, '<s>$1</s>')
+                .replace(mdTokens[this.options.markdownMode].bold.regex, '<strong>$1</strong>')
+                .replace(mdTokens[this.options.markdownMode].italic.regex, '<em>$1</em>')
+                .replace(mdTokens[this.options.markdownMode].strikethrough.regex, '<s>$1</s>')
                 .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
                 .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
                 .replace(/```([\s\S]*?)```/g, (match, p1) => `<pre><code>${p1.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`)
@@ -2334,9 +2381,9 @@ class MarkdownWYSIWYG {
                 const imgSrc = node.getAttribute('src') || '';
                 const imgAlt = node.getAttribute('alt') || '';
                 return `![${imgAlt}](${imgSrc})\n\n`;
-            case 'B': case 'STRONG': return `**${this._processInlineContainerRecursive(node, options).trim()}**`;
-            case 'I': case 'EM': return `*${this._processInlineContainerRecursive(node, options).trim()}*`;
-            case 'S': case 'DEL': case 'STRIKE': return `~~${this._processInlineContainerRecursive(node, options).trim()}~~`;
+            case 'B': case 'STRONG': return `${mdTokens[this.options.markdownMode].bold.token}${this._processInlineContainerRecursive(node, options).trim()}${mdTokens[this.options.markdownMode].bold.token}`;
+            case 'I': case 'EM': return `${mdTokens[this.options.markdownMode].italic.token}${this._processInlineContainerRecursive(node, options).trim()}${mdTokens[this.options.markdownMode].italic.token}`;
+            case 'S': case 'DEL': case 'STRIKE': return `${mdTokens[this.options.markdownMode].strikethrough.token}${this._processInlineContainerRecursive(node, options).trim()}${mdTokens[this.options.markdownMode].strikethrough.token}`;
             case 'A':
                 const href = node.getAttribute('href') || '';
                 const linkText = this._processInlineContainerRecursive(node, options).trim();
