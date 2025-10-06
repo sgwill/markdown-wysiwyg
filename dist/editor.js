@@ -35,6 +35,11 @@ const mdTokens = {
             token: '~~',
             regex: /~~(.*?)~~/g,
             len: 2,
+        },
+        heading: {
+            token: '#',
+            tokenSpace: ' ',
+            regex: /^(#+)\s/
         }
     },
     'bladewiki': {
@@ -52,6 +57,11 @@ const mdTokens = {
             token: '-',
             regex: /-(.*?)-/g,
             len: 1,
+        },
+        heading: {
+            token: '+',
+            tokenSpace: '',
+            regex: /^(\++)/
         }
     },
 };
@@ -540,7 +550,7 @@ class MarkdownWYSIWYG {
     }
     _applyHeading(level) {
         const tagName = `H${level}`;
-        const mdPrefix = `${'#'.repeat(level)} `;
+        const mdPrefix = `${mdTokens[this.options.markdownMode].heading.token.repeat(level)}${mdTokens[this.options.markdownMode].heading.tokenSpace}`;
 
         if (this.currentMode === 'wysiwyg') {
             this.editableArea.focus();
@@ -566,7 +576,7 @@ class MarkdownWYSIWYG {
             const lineEndIndex = textValue.indexOf('\n', lineStartIndex);
             const currentLine = textValue.substring(lineStartIndex, lineEndIndex === -1 ? textValue.length : lineEndIndex);
 
-            const existingHeaderMatch = currentLine.match(/^(#+\s)/);
+            const existingHeaderMatch = currentLine.match(mdTokens[this.options.markdownMode].heading.regex);
             let newLine = currentLine;
             let diff = 0;
 
@@ -629,7 +639,7 @@ class MarkdownWYSIWYG {
             const selStart = this.markdownArea.selectionStart;
             let lineStart = textValue.lastIndexOf('\n', selStart - 1) + 1;
             const currentLine = textValue.substring(lineStart, textValue.indexOf('\n', lineStart));
-            const match = currentLine.match(/^(#+)\s/);
+            const match = currentLine.match(mdTokens[this.options.markdownMode].heading.regex);
             if (match) {
                 currentLevel = match[1].length;
             }
@@ -1089,7 +1099,7 @@ class MarkdownWYSIWYG {
             if (btnConfig.id === 'heading') {
                 let lineStart = textValue.lastIndexOf('\n', selStart - 1) + 1;
                 const currentLine = textValue.substring(lineStart, textValue.indexOf('\n', lineStart));
-                isActive = /^#{1,6}\s/.test(currentLine);
+                isActive = mdTokens[this.options.markdownMode].heading.regex.test(currentLine);
             }
             else if (btnConfig.id === 'indent') {
                 const lineStart = textValue.lastIndexOf('\n', selStart - 1) + 1;
@@ -2115,9 +2125,14 @@ class MarkdownWYSIWYG {
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
-            html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            html = html
+                // TODO: Improve H config
+                .replace(/^\+\+\+\+\+\+(.*$)/gim, '<h6>$1</h6>')
+                .replace(/^\+\+\+\+\+(.*$)/gim, '<h5>$1</h5>')
+                .replace(/^\+\+\+\+(.*$)/gim, '<h4>$1</h4>')
+                .replace(/^\+\+\+(.*$)/gim, '<h3>$1</h3>')
+                .replace(/^\+\+(.*$)/gim, '<h2>$1</h2>')
+                .replace(/^\+(.*$)/gim, '<h1>$1</h1>')
                 // TODO:
                 .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
                 .replace(mdTokens[this.options.markdownMode].bold.regex, '<strong>$1</strong>')
@@ -2444,7 +2459,7 @@ class MarkdownWYSIWYG {
                     return `\`\`\`\n${preTextContent}\`\`\`\n\n`;
                 }
                 if (node.nodeName.match(/^H[1-6]$/)) {
-                    return `${'#'.repeat(parseInt(node.nodeName[1]))} ${this._processInlineContainerRecursive(node, options).trim()}\n\n`;
+                    return `${mdTokens[this.options.markdownMode].heading.token.repeat(parseInt(node.nodeName[1]))}${mdTokens[this.options.markdownMode].heading.tokenSpace}${this._processInlineContainerRecursive(node, options).trim()}\n\n`;
                 }
                 if (node.nodeName === 'HR') {
                     return '\n---\n\n';
